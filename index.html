@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Discord Role Members</title>
+<style>
+  body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px;background:#1a1a2e;color:#e0e0e0}
+  h1{color:#7289da}
+  h2{border-bottom:2px solid #2e2e4a;padding-bottom:4px;color:#b0b8d0}
+  small{color:#7a8499;font-size:.85em}
+  ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 16px}
+  li{background:#2a2a3e;padding:3px 10px;border-radius:12px;font-size:.9em;color:#c8cdd8}
+  footer{margin-top:40px;color:#555a6e;font-size:.8em}
+  #loading{color:#7a8499;text-align:center;padding:40px}
+  .error{color:#e05555;padding:10px;background:#2a1a1a;border-radius:4px;margin:8px 0}
+</style></head>
+<body>
+<h1>Discord Role Members</h1>
+<div id="content"><div id="loading">読み込み中...</div></div>
+<footer id="footer"></footer>
+<script>
+const CATEGORIES = ["event-managers", "supporters"];
+const DATA_BASE = 'data/';
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderCategoryData(dataList) {
+  if (!Array.isArray(dataList)) dataList = [dataList];
+  return dataList.map(data => {
+    const roles = (data.roles || []).map(role => {
+      const members = (role.members || []).map(m => `<li>${escapeHtml(m)}</li>`).join('');
+      const color = escapeHtml(role.role_color || '#000000');
+      return `<div class="role"><h3 style="color:${color}">${escapeHtml(role.role_name)} <small>(${role.member_count}人)</small></h3><ul>${members}</ul></div>`;
+    }).join('');
+    return `<section><h2>${escapeHtml(data.category_name || '')}</h2>${roles}</section>`;
+  }).join('');
+}
+
+async function loadAll() {
+  const content = document.getElementById('content');
+  const footer = document.getElementById('footer');
+  let html = '';
+  let lastDate = '';
+
+  for (const cat of CATEGORIES) {
+    try {
+      const res = await fetch(DATA_BASE + cat + '.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const dataList = await res.json();
+      html += renderCategoryData(dataList);
+      const first = Array.isArray(dataList) ? dataList[0] : dataList;
+      if (first && first.fetch_date) lastDate = first.fetch_date;
+    } catch (e) {
+      html += `<div class="error">カテゴリ "${escapeHtml(cat)}" の読み込みに失敗しました: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  content.innerHTML = html || '<p>データがありません</p>';
+  if (lastDate) {
+    const d = new Date(lastDate);
+    footer.textContent = '更新日時: ' + d.toLocaleString('ja-JP');
+  }
+}
+
+loadAll();
+</script>
+</body></html>
